@@ -1,4 +1,5 @@
 from PIL import Image
+import smblueprint as sm
 
 class picture:
     def __init__(self, bp, image, block_type=sm.BlockType.PLASTIC):
