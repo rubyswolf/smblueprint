@@ -12,7 +12,7 @@ class LogicMode(IntEnum):
 
 class LogicGate:
     def __init__(self, x, y, z, mode: LogicMode, color="DF7F01"):
-        self.id = None  # ID will be assigned by Blueprint
+        self.id = None
         self.mode = mode
         self.color = color
         self.pos = {"x": x, "y": y, "z": z}
@@ -21,8 +21,8 @@ class LogicGate:
         self.xaxis = 2
         self.zaxis = 1
 
-    def connect_to(self, target_gate):
-        self.controllers.append({"id": target_gate.id})
+    def connect_to(self, target):
+        self.controllers.append({"id": target.id})
 
     def to_dict(self):
         return {
@@ -46,6 +46,37 @@ class BlockType(Enum):
     METAL1 = "8aedf6c2-94e1-4506-89d4-a0227c552f1e"
     # Add more block types as needed
 
+class Timer:
+    def __init__(self, x, y, z, delay, color="DF7F01"):
+        self.id = None
+        self.pos = {"x": x, "y": y, "z": z}
+        self.color = color
+        self.controllers = []
+        self.seconds = delay//40
+        self.ticks = delay%40
+        self.shapeId = "8f7fd0e7-c46e-4944-a414-7ce2437bb30f"  # Replace with actual shape ID
+        self.xaxis = 1
+        self.zaxis = 3
+
+    def connect_to(self, target):
+        self.controllers.append({"id": target.id})
+
+    def to_dict(self):
+        return {
+            "color": self.color,
+            "controller": {
+                "id": self.id,
+                "active": False,
+                "controllers": self.controllers or None,
+                "joints": None,
+                "seconds": self.seconds,
+                "ticks": self.ticks
+            },
+            "pos": self.pos,
+            "shapeId": self.shapeId,
+            "xaxis": self.xaxis,
+            "zaxis": self.zaxis
+        }
 
 class Blocks:
     def __init__(self, x, y, z, width, height, depth, block_type: BlockType, color="0B9ADE"):
@@ -72,47 +103,38 @@ class Blueprint:
         self.parts = []
         self._id_counter = 1  # Start IDs at 1
 
-    def add_gate(self, gate: LogicGate):
-        gate.id = self._id_counter
-        self._id_counter += 1
-        self.parts.append(gate)
+    def add(self, part):
+        # Assign an ID if the part has an 'id' attribute (LogicGate or Timer)
+        if hasattr(part, 'id'):
+            part.id = self._id_counter
+            self._id_counter += 1
+        self.parts.append(part)
 
-    def add_gate_matrix(self, width, height, depth, start_x, start_y, start_z, mode: LogicMode, collapse=False):
-        """
-        Add a 3D matrix of logic gates.
-        Returns a 3D list [layer][row][col] of LogicGate objects:
-            layer = Z (depth)
-            row = Y (height)
-            col = X (width)
-        """
-        matrix = []
-        for z in range(depth):
-            layer = []
-            for y in range(height):
-                row = []
-                for x in range(width):
-                    if collapse:
-                        gate = LogicGate(
-                            x=start_x,
-                            y=start_y,
-                            z=start_z,
-                            mode=mode
-                        )
-                    else:
-                        gate = LogicGate(
-                            x=start_x + x,
-                            y=start_y + y,
-                            z=start_z + z,
-                            mode=mode
-                        )
-                    self.add_gate(gate)
-                    row.append(gate)
-                layer.append(row)
-            matrix.append(layer)
-        return matrix
+    def merge(self, target, source):
+        # Merge controllers from source to target, avoiding duplicates
+        target_ids = {c["id"] for c in getattr(target, "controllers", [])}
+        for c in getattr(source, "controllers", []):
+            if c["id"] not in target_ids:
+                getattr(target, "controllers", []).append({"id": c["id"]})
+                target_ids.add(c["id"])
 
-    def add_block(self, block: Blocks):
-        self.parts.append(block)
+        # Update all parts that have source.id as a controller to use target.id, avoiding duplicates
+        for part in self.parts:
+            if hasattr(part, "controllers"):
+                # Remove duplicates after replacement
+                new_controllers = []
+                seen = set()
+                for ctrl in part.controllers:
+                    ctrl_id = ctrl["id"]
+                    if ctrl_id == source.id:
+                        ctrl_id = target.id
+                    if ctrl_id not in seen:
+                        new_controllers.append({"id": ctrl_id})
+                        seen.add(ctrl_id)
+                part.controllers = new_controllers
+
+        # Remove the source part from the blueprint
+        self.parts = [p for p in self.parts if p is not source]
 
     def to_json(self):
         body = {
@@ -128,4 +150,4 @@ class Blueprint:
         with open(filename, "w") as f:
             f.write(self.to_json())
 
-__all__ = ['Blueprint', 'LogicGate', 'LogicMode', 'BlockType', 'Blocks']
+__all__ = ['Blueprint', 'LogicGate', 'LogicMode', 'Timer', 'BlockType', 'Blocks']

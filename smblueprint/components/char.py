@@ -2,6 +2,10 @@ import smblueprint as sm
 from .decoder import decoder
 
 class char:
+    """
+    A class to handle character display using a bitmap font.
+    Reads a BDF (Bitmap Distribution Format) file and creates a display
+    """
     def __init__(self, bp, filepath, x=0, y=0, z=0):
         dec = decoder(bp, 8, x, y, z)
         self.input = dec.input
@@ -42,7 +46,7 @@ class char:
 
         for row in display:
             for gate in row:
-                bp.add_gate(gate)
+                bp.add(gate)
 
         for char_code in range(256):
             if char_code not in glyphs:
