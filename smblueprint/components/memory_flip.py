@@ -8,7 +8,6 @@ class memory_flip:
         mask = [[equals(bp,address,i,inverted_address,x,y,z).output for j in range(mem.bits)] for i in range(mem.addresses)]
         for i in range(mem.addresses):
             for j in range(mem.bits):
-                bp.add(mask[i][j])
                 mask[i][j].connect_to(mem.data[i][j])
                 
         self.input = [sm.LogicGate(x, y, z, sm.LogicMode.OR) for i in range(mem.bits)]

@@ -9,10 +9,8 @@ class equals:
             bp.add(self.output)
 
             for i in range(len(input1)):
-                # print(input1[i].id)
                 # Connect the input and inverted to the output according to the constant
                 (input1[i] if (input2 >> i) & 1 else inverted[i]).connect_to(self.output)
-                # input1[i].connect_to(self.output)
         elif type(input2) is list: # Two input comparison
             # Create a line of XOR gates to find the difference
             difference = [sm.LogicGate(x, y, z, sm.LogicMode.XOR) for i in range(len(input1))]

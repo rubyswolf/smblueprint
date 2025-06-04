@@ -8,7 +8,6 @@ class memory_read:
         mask = [[equals(bp,address,i,inverted_address,x,y,z).output for j in range(mem.bits)] for i in range(mem.addresses)]
         for i in range(mem.addresses):
             for j in range(mem.bits):
-                bp.add(mask[i][j])
                 mem.data[i][j].connect_to(mask[i][j])
 
         self.output = [sm.LogicGate(x, y, z, sm.LogicMode.OR) for i in range(mem.bits)]
