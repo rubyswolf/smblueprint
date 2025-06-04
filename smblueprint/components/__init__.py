@@ -9,6 +9,6 @@ from .memory_increment import memory_increment
 from .memory_decrement import memory_decrement
 from .memory_write import memory_write
 from .memory_set import memory_set
-#from .stack import stack
+from .stack import stack
 
-__all__ = ["picture", "invert", "equals", "char", "memory", "memory_read", "memory_flip", "memory_increment", "memory_decrement", "memory_write", "memory_set"]
+__all__ = ["picture", "invert", "equals", "char", "memory", "memory_read", "memory_flip", "memory_increment", "memory_decrement", "memory_write", "memory_set", "stack"]
