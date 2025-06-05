@@ -3,7 +3,7 @@ from smblueprint.components import stack
 
 bp = sm.Blueprint()
 
-my_stack = stack(bp, 8, 8, True)
+my_stack = stack(bp, 8, 8, True, True)
 for i in range(8):
     my_stack.input[i].pos["x"] = i
     my_stack.input[i].pos["y"] = 1

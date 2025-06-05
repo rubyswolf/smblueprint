@@ -14,13 +14,14 @@ class stack:
     This means that the first value of the stack is at memory address 1, because the pointer starts at 0.
     If you want the stack to start at 0, manually set the pointer to the highest address of the stack so it wraps around to 0.
     """
-    def __init__(self, bp, size, bits, clear_on_pop=False, x=0, y=0, z=0):
+    def __init__(self, bp, size, bits, poppable=True, clear_on_pop=False, x=0, y=0, z=0):
         # Push and pop inputs
         self.push = sm.LogicGate(x, y, z, sm.LogicMode.AND, "00FF00")
         bp.add(self.push)
 
-        self.pop = sm.LogicGate(x, y, z, sm.LogicMode.AND, "FF00FF")
-        bp.add(self.pop)
+        if poppable:
+            self.pop = sm.LogicGate(x, y, z, sm.LogicMode.AND, "FF00FF")
+            bp.add(self.pop)
 
         # Memory to hold stack data
         self.memory = memory(bp, size, bits, x, y, z)
@@ -30,13 +31,17 @@ class stack:
 
         # Make the stack pointer into a counter
         pointer_incrementer = memory_increment(bp, self.pointer, True, 0, None, x, y, z)
-        pointer_decrementer = memory_decrement(bp, self.pointer, True, 0, None, x, y, z)
+        if poppable:
+            pointer_decrementer = memory_decrement(bp, self.pointer, True, 0, None, x, y, z)
 
-        # Merge their gates and expose it
-        bp.merge(pointer_incrementer.gate, pointer_decrementer.gate)
+        if poppable:
+            # Merge their gates and expose it
+            bp.merge(pointer_incrementer.gate, pointer_decrementer.gate)
         self.gate = pointer_incrementer.gate
         self.gate.connect_to(self.push)
-        self.gate.connect_to(self.pop)
+        
+        if poppable:
+            self.gate.connect_to(self.pop)
 
         # Get the pointer value
         pointer_value = self.pointer.data[0]
@@ -61,12 +66,13 @@ class stack:
         write_delay.connect_to(mem_write.trigger)
 
         # Handle pop operation
-        if clear_on_pop:
-            # If we want to clear the popped value
-            mem_set = memory_set(bp, self.memory, pointer_value, 0, inverted_pointer_value, x, y, z)
-            self.pop.connect_to(mem_set.trigger)
+        if poppable:
+            if clear_on_pop:
+                # If we want to clear the popped value
+                mem_set = memory_set(bp, self.memory, pointer_value, 0, inverted_pointer_value, x, y, z)
+                self.pop.connect_to(mem_set.trigger)
 
-        self.pop.connect_to(pointer_decrementer.trigger)
+            self.pop.connect_to(pointer_decrementer.trigger)
 
 
 
