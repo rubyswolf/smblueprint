@@ -44,6 +44,7 @@ class LogicGate:
 class BlockType(Enum):
     PLASTIC = "628b2d61-5ceb-43e9-8334-a4135566df7a"
     METAL1 = "8aedf6c2-94e1-4506-89d4-a0227c552f1e"
+    BARRIER = "09ca2713-28ee-4119-9622-e85490034758"
     # Add more block types as needed
 
 class Timer:
@@ -77,6 +78,88 @@ class Timer:
             "xaxis": self.xaxis,
             "zaxis": self.zaxis
         }
+    
+class Switch:
+    def __init__(self, x, y, z, color="DF7F01"):
+        self.id = None
+        self.color = color
+        self.pos = {"x": x, "y": y, "z": z}
+        self.controllers = []
+        self.shapeId = "7cf717d7-d167-4f2d-a6e7-6b2c70aa3986"
+        self.xaxis = 2
+        self.zaxis = 1
+
+    def connect_to(self, target):
+        self.controllers.append({"id": target.id})
+
+    def to_dict(self):
+        return {
+            "color": self.color,
+            "controller": {
+                "id": self.id,
+                "active": False,
+                "controllers": self.controllers or None,
+                "joints": None
+            },
+            "pos": self.pos,
+            "shapeId": self.shapeId,
+            "xaxis": self.xaxis,
+            "zaxis": self.zaxis
+        }
+class Button:
+    def __init__(self, x, y, z, color="DF7F01"):
+        self.id = None
+        self.color = color
+        self.pos = {"x": x, "y": y, "z": z}
+        self.controllers = []
+        self.shapeId = "1e8d93a4-506b-470d-9ada-9c0a321e2db5"
+        self.xaxis = 2
+        self.zaxis = 1
+
+    def connect_to(self, target):
+        self.controllers.append({"id": target.id})
+
+    def to_dict(self):
+        return {
+            "color": self.color,
+            "controller": {
+                "id": self.id,
+                "active": False,
+                "controllers": self.controllers or None,
+                "joints": None
+            },
+            "pos": self.pos,
+            "shapeId": self.shapeId,
+            "xaxis": self.xaxis,
+            "zaxis": self.zaxis
+        }
+class Toilet:
+    def __init__(self, x, y, z, color="3E9FFE"):
+        self.id = None
+        self.color = color
+        self.pos = {"x": x, "y": y, "z": z}
+        self.controllers = []
+        self.shapeId = "ca003562-fde7-463c-969e-f8334ae54387"
+        self.xaxis = -1
+        self.zaxis = 2
+
+    def connect_to(self, target):
+        self.controllers.append({"id": target.id})
+
+    def to_dict(self):
+        return {
+            "color": self.color,
+            "controller": {
+                "id": self.id,
+                "active": False,
+                "controllers": self.controllers or None,
+                "joints": None
+            },
+            "pos": self.pos,
+            "shapeId": self.shapeId,
+            "xaxis": self.xaxis,
+            "zaxis": self.zaxis
+        }
 
 class Blocks:
     def __init__(self, x, y, z, width, height, depth, block_type: BlockType, color="0B9ADE"):
@@ -104,7 +187,7 @@ class Blueprint:
         self._id_counter = 1  # Start IDs at 1
 
     def add(self, part):
-        # Assign an ID if the part has an 'id' attribute (LogicGate or Timer)
+        # Assign an ID if the part has an 'id' attribute
         if hasattr(part, 'id'):
             part.id = self._id_counter
             self._id_counter += 1

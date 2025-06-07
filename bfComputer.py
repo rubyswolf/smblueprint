@@ -2,16 +2,18 @@ import smblueprint as sm
 from smblueprint.components import stack, char, invert, rom, memory, memory_read, memory_write, memory_increment, memory_decrement, memory_set, equals, rising_edge
 import math
 
-script = "hello_world.bf" # Program for the computer to run
+script = "calculator2.bf" # Program for the computer to run
 
 # Computer configuration
 
 bits = 8 # Global number of bits
-memory_size = 8 # Number of addresses in the memory
+memory_size = 13 # Number of addresses in the memory
 
 #IO
-input_size = 3 # Size of the input buffer
-output_size = 12 # Size of the output buffer
+input_size = 4 # Size of the input buffer
+output_size = 5 # Size of the output buffer
+
+reset_button = True # Whether to add a reset button to the computer
 
 memory_address_size = math.ceil(math.log2(memory_size)) # Number of bits needed to address the memory
 
@@ -86,8 +88,8 @@ halt_constant = 2**(program_address_size+1)-1 # Halt instruction, sets the halt 
 # Add the halt instruction
 bracket_data[program_length] = halt_constant # Halt instruction, will be used to stop the computer once it reaches the end of the program
 
-print(program_data)
-print(bracket_data)
+# print(program_data)
+# print(bracket_data)
 # exit()
 
 bp = sm.Blueprint()
@@ -115,9 +117,13 @@ enable = sm.LogicGate(-1, 0, 0, sm.LogicMode.AND, "00FF00")  # Logic gate to ena
 bp.add(enable)
 enable.connect_to(running)
 
-tick = sm.LogicGate(-2, 0, 0, sm.LogicMode.AND, "FFFF00")  # Logic gate to indicate a tick
+tick = sm.LogicGate(0, 0, 0, sm.LogicMode.AND)  # Logic gate to indicate a tick
 bp.add(tick)
 running.connect_to(tick)
+
+trigger_tick = sm.LogicGate(-2, 0, 0, sm.LogicMode.OR, "FFFF00") # Logic gate to trigger the tick
+bp.add(trigger_tick)
+trigger_tick.connect_to(tick)  # Connect the trigger tick to the tick logic gate
 
 # PC
 program_counter = memory(bp, 1, program_address_size)  # Memory for the program counter
@@ -126,7 +132,7 @@ program_counter_value_inverted = invert(bp, program_counter_value).output  # Inv
 
 for i in range(program_address_size):
     program_counter_value[i].color = "00FF00"  # Color the program counter value green
-    program_counter_value[i].pos["x"] = i+8  # Position the program counter value
+    program_counter_value[i].pos["x"] = i+4  # Position the program counter value
     program_counter_value[i].pos["y"] = -1
 
 # Program counter operations
@@ -153,11 +159,11 @@ mem = memory(bp, memory_size, bits)  # Main memory for the computer
 
 for i in range(memory_size):
     for j in range(bits):
-        mem.data[i][j].pos["x"] = i-bits-1
+        mem.data[i][j].pos["x"] = i-memory_size-1
         mem.data[i][j].pos["y"] = j+2
         mem.data[i][j].pos["z"] = 1
 
-bp.add(sm.Blocks(-1, 2, 1, 1, memory_size, 1, sm.BlockType.PLASTIC, "000000"))
+bp.add(sm.Blocks(-1, 2, 1, 1, bits, 1, sm.BlockType.PLASTIC, "000000"))
 
 # Memory pointer
 mem_pointer = memory(bp, 1, memory_address_size)  # Memory for the current memory address
@@ -189,21 +195,58 @@ bp.merge(enable, mem_decrement.gate)
 input_buffer = stack(bp, input_size, bits, True, True)
 bp.merge(constant_high, input_buffer.gate)
 
+# Player controls
+bp.add(sm.Blocks(3, -3, 0, 1, 4, 1, sm.BlockType.PLASTIC, "000000"))
+bp.add(sm.Blocks(-2, 1, 0, 2, 1, 1, sm.BlockType.PLASTIC, "000000"))
+
+enable_switch = sm.Switch(-1, 1, 1, "00FF00")  # Switch to enable the computer
+bp.add(enable_switch)
+enable_switch.connect_to(enable)  # Connect the enable switch to the enable logic gate
+
+tick_button = sm.Button(-2, 1, 1, "FFFF00")  # Button to trigger a tick
+bp.add(tick_button)
+external_tick = rising_edge(bp, tick_button) # Create a rising edge from the button press to trigger the tick logic gate
+external_tick.output.connect_to(trigger_tick)  # Connect the external tick to the trigger tick logic gate
+
+main_toilet = sm.Toilet(5,-4, 1)
+bp.add(main_toilet)  # Add the toilet to the blueprint
+
+
 for i in range(bits):
     input_buffer.input[i].pos["x"] = i
     input_buffer.input[i].pos["y"] = 1
+
+    bit_switch = sm.Switch(i, 1, 1, "FFFFFF")
+    bp.add(bit_switch)
+    bit_switch.connect_to(input_buffer.input[i])  # Connect the switch to the input buffer pointer bit
+    main_toilet.connect_to(bit_switch)  # Connect the toilet to the switch
 
 for i in range(input_buffer.pointer.bits):
     input_buffer.pointer.data[0][i].color = "FFFFFF"
     input_buffer.pointer.data[0][i].pos["x"] = i+8+len(program_rom.output)
     input_buffer.pointer.data[0][i].pos["y"] = 1
 
-accessible_push = sm.LogicGate(1, 0, 0, sm.LogicMode.AND, "00FF00")
-bp.add(accessible_push)
-accessible_push.connect_to(input_buffer.push)
-accessible_pop = sm.LogicGate(2, 0, 0, sm.LogicMode.AND, "FF00FF")
-bp.add(accessible_pop)
-accessible_pop.connect_to(input_buffer.pop)
+
+bp.add(sm.Blocks(1, 0, 0, 2, 1, 1, sm.BlockType.PLASTIC, "000000"))
+
+push_button = sm.Button(1, 0, 1, "00FF00")  # Button to push data into the input buffer
+bp.add(push_button)
+rising_edge(bp, push_button).output.connect_to(input_buffer.push)  # Connect the button press to the input buffer push operation
+pop_button = sm.Button(2, 0, 1, "FF00FF")  # Button to pop data from the input buffer
+bp.add(pop_button)
+rising_edge(bp, pop_button).output.connect_to(input_buffer.pop)  # Connect the button press to the input buffer pop operation
+
+main_toilet.connect_to(push_button)  # Connect the toilet to the push button
+main_toilet.connect_to(pop_button)  # Connect the toilet to the pop button
+
+# accessible_push = sm.LogicGate(1, 0, 0, sm.LogicMode.AND, "00FF00")
+# bp.add(accessible_push)
+# accessible_push.connect_to(input_buffer.push)
+# accessible_pop = sm.LogicGate(2, 0, 0, sm.LogicMode.AND, "FF00FF")
+# bp.add(accessible_pop)
+# accessible_pop.connect_to(input_buffer.pop)
+
+
 
 input_pointer = memory(bp, 1, input_buffer.pointer.bits) # Pointer for reading the input buffer
 input_pointer_value = input_pointer.data[0]  # The actual input pointer value
@@ -354,8 +397,35 @@ trigger_while_end.connect_to(program_counter_write.trigger)  # Write the locatio
 # Halt
 rising_edge(bp, bracket_data_rom.output[-1]).output.connect_to(halted_value)  # Connect the halt trigger to the halted value
 
+# Run continuously
+cycle_delay = sm.Timer(0, 0, 0, 7)  # Timer to create a cycle delay
+bp.add(cycle_delay)
+
+tick.connect_to(cycle_delay)  # Connect the tick to the cycle delay
+cycle_delay.connect_to(trigger_tick)  # Connect the cycle delay output to the tick trigger
+
+if reset_button:
+    bp.add(sm.Blocks(-4, 0, 0, 1, 1, 1, sm.BlockType.BARRIER, "CE9E0C"))
+    reset_button = sm.Button(-5, 0, 1, "FF0000")  # Reset button to reset the computer
+    bp.add(reset_button)
+
+    reset_trigger = rising_edge(bp, reset_button, -5, 0, 0).output  # Create a rising edge from the reset button press
+    for i in range(memory_size):
+        reset_trigger.connect_to(memory_set(bp, mem, i, 0, None, -5, 0, 0).trigger)  # Reset the memory to zero
+
+    reset_trigger.connect_to(memory_set(bp, halted, 0, 0, None, -5, 0, 0).trigger)  # Reset the halted state to zero
+    reset_trigger.connect_to(memory_set(bp, program_counter, 0, 0, None, -5, 0, 0).trigger)  # Reset the program counter to zero
+    reset_trigger.connect_to(memory_set(bp, mem_pointer, 0, 0, None, -5, 0, 0).trigger)  # Reset the memory pointer to zero
+    reset_trigger.connect_to(memory_set(bp, input_pointer, 0, 0, None, -5, 0, 0).trigger)  # Reset the input pointer to zero
+    reset_trigger.connect_to(memory_set(bp, output_buffer.pointer, 0, 2**(output_buffer.pointer.bits)-1, None, -5, 0, 0).trigger)  # Reset the output pointer to the maximum value
+
+    # Clear the output buffer
+    for i in range(output_size):
+        reset_trigger.connect_to(memory_set(bp, output_buffer.memory, i, 0, None, -5, 0, 0).trigger)  # Reset the output buffer memory to zero
+
 print("Created Computer logic")
 
-bp.write("C:\\Users\\TechFast Australia\\AppData\\Roaming\\Axolot Games\\Scrap Mechanic\\User\\User_76561198072296012\\Blueprints\\33a4d966-7df2-42ff-b0b4-eb0cafcadeca\\blueprint.json")
+# bp.write("C:\\Users\\TechFast Australia\\AppData\\Roaming\\Axolot Games\\Scrap Mechanic\\User\\User_76561198072296012\\Blueprints\\33a4d966-7df2-42ff-b0b4-eb0cafcadeca\\blueprint.json")
+bp.write("C:\\Program Files (x86)\\Steam\\steamapps\\common\\Scrap Mechanic\\Data\\blueprint.json")
 
 print("Blueprint written to file")

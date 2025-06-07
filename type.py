@@ -28,13 +28,17 @@ def main():
                 print("Exiting.")
                 sys.exit(0)
             elif event.name == 'backspace':
-                keyboard.press_and_release('0')
+                keyboard.press('0')
+                time.sleep(0.05)  # 1/20th of a second
+                keyboard.release('0')
                 print("Pressed 0 for Backspace")
             elif len(event.name) == 1 or event.name == 'space':
                 char = ' ' if event.name == 'space' else event.name
                 bits = set_switches_from_char(char)
                 press_switches(bits)
-                keyboard.press_and_release('9')
+                keyboard.press('9')
+                time.sleep(0.05)  # 1/20th of a second
+                keyboard.release('9')
                 print(f"Set switches to {bits} for '{char}' (code {ord(char)})")
 
 if __name__ == "__main__":
