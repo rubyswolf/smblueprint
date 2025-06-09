@@ -2,16 +2,17 @@ import smblueprint as sm
 from smblueprint.components import stack, char, invert, rom, memory, memory_read, memory_write, memory_increment, memory_decrement, memory_set, equals, rising_edge
 import math
 
-script = "calculator2.bf" # Program for the computer to run
+script = "every_second.bf" # Program for the computer to run
 
 # Computer configuration
 
 bits = 8 # Global number of bits
-memory_size = 13 # Number of addresses in the memory
+memory_size = 16 # Number of addresses in the memory
 
 #IO
-input_size = 4 # Size of the input buffer
-output_size = 5 # Size of the output buffer
+# Note the if the size of the input buffer is a power of two then the stack pointer may wrap around and the input "abcd" will be seen as "abcdabcdabcd..." continually
+input_size = 6 # Size of the input buffer
+output_size = 6 # Size of the output buffer
 
 reset_button = True # Whether to add a reset button to the computer
 
@@ -295,8 +296,10 @@ if_increment = equals(bp, program_rom.output, 2, program_rom_inverted).output # 
 if_decrement = equals(bp, program_rom.output, 3, program_rom_inverted).output # -
 if_output = equals(bp, program_rom.output, 4, program_rom_inverted).output # .
 if_input = equals(bp, program_rom.output, 5, program_rom_inverted).output # ,
-if_while_start = equals(bp, program_rom.output, 6, program_rom_inverted).output # [
-if_while_end = equals(bp, program_rom.output, 7, program_rom_inverted).output # ]
+if_while_start_jump = equals(bp, program_rom.output, 6, program_rom_inverted).output # [ (command run)
+if_while_start_skip = equals(bp, program_rom.output, 6, program_rom_inverted).output # [ (command ignored)
+if_while_end_jump = equals(bp, program_rom.output, 7, program_rom_inverted).output # ] (command run)
+if_while_end_skip = equals(bp, program_rom.output, 7, program_rom_inverted).output # ] (command ignored)
 
 trigger_move_left = sm.LogicGate(0, 0, 0, sm.LogicMode.AND)
 trigger_move_right = sm.LogicGate(0, 0, 0, sm.LogicMode.AND)
@@ -304,8 +307,10 @@ trigger_increment = sm.LogicGate(0, 0, 0, sm.LogicMode.AND)
 trigger_decrement = sm.LogicGate(0, 0, 0, sm.LogicMode.AND)
 trigger_output = sm.LogicGate(0, 0, 0, sm.LogicMode.AND)
 trigger_input = sm.LogicGate(0, 0, 0, sm.LogicMode.AND)
-trigger_while_start = sm.LogicGate(0, 0, 0, sm.LogicMode.AND)
-trigger_while_end = sm.LogicGate(0, 0, 0, sm.LogicMode.AND)
+trigger_while_start_jump = sm.LogicGate(0, 0, 0, sm.LogicMode.AND)
+trigger_while_start_skip = sm.LogicGate(0, 0, 0, sm.LogicMode.AND)
+trigger_while_end_jump = sm.LogicGate(0, 0, 0, sm.LogicMode.AND)
+trigger_while_end_skip = sm.LogicGate(0, 0, 0, sm.LogicMode.AND)
 
 bp.add(trigger_move_left)
 bp.add(trigger_move_right)
@@ -313,8 +318,10 @@ bp.add(trigger_increment)
 bp.add(trigger_decrement)
 bp.add(trigger_output)
 bp.add(trigger_input)
-bp.add(trigger_while_start)
-bp.add(trigger_while_end)
+bp.add(trigger_while_start_jump)
+bp.add(trigger_while_start_skip)
+bp.add(trigger_while_end_jump)
+bp.add(trigger_while_end_skip)
 
 if_move_left.connect_to(trigger_move_left)
 if_move_right.connect_to(trigger_move_right)
@@ -322,8 +329,10 @@ if_increment.connect_to(trigger_increment)
 if_decrement.connect_to(trigger_decrement)
 if_output.connect_to(trigger_output)
 if_input.connect_to(trigger_input)
-if_while_start.connect_to(trigger_while_start)
-if_while_end.connect_to(trigger_while_end)
+if_while_start_jump.connect_to(trigger_while_start_jump)
+if_while_start_skip.connect_to(trigger_while_start_skip)
+if_while_end_jump.connect_to(trigger_while_end_jump)
+if_while_end_skip.connect_to(trigger_while_end_skip)
 
 tick.connect_to(trigger_move_left)
 tick.connect_to(trigger_move_right)
@@ -331,13 +340,15 @@ tick.connect_to(trigger_increment)
 tick.connect_to(trigger_decrement)
 tick.connect_to(trigger_output)
 tick.connect_to(trigger_input)
-tick.connect_to(trigger_while_start)
-tick.connect_to(trigger_while_end)
+tick.connect_to(trigger_while_start_jump)
+tick.connect_to(trigger_while_start_skip)
+tick.connect_to(trigger_while_end_jump)
+tick.connect_to(trigger_while_end_skip)
 
 non_jumping_command = sm.LogicGate(0, 0, 0, sm.LogicMode.NOR)  # Logic gate to check if the command is not a jumping command
 bp.add(non_jumping_command)
-if_while_start.connect_to(non_jumping_command)  # Connect the while start command to the non-jumping command
-if_while_end.connect_to(non_jumping_command)  # Connect the while end command to the non-jumping command
+if_while_start_jump.connect_to(non_jumping_command)  # Connect the while start command to the non-jumping command
+if_while_end_jump.connect_to(non_jumping_command)  # Connect the while end command to the non-jumping command
 
 # Increment the program counter
 program_counter_increment.trigger.mode = sm.LogicMode.AND  # Set the program counter increment trigger to AND mode so it only triggers when the command is not a jumping command and the tick occurs
@@ -374,35 +385,99 @@ trigger_input.connect_to(input_pointer_increment.trigger)  # Increment the input
 for i in range(program_address_size):
     bracket_data_rom.output[i].connect_to(program_counter_write.input[i])  # Prepare to write the location to jump to when encountering a bracket to the program counter
 
-# While loop start
 zero_memory = sm.LogicGate(0, 0, 0, sm.LogicMode.NOR)  # Logic gate to check if the memory at the current pointer is zero
 bp.add(zero_memory)
+nonzero_memory = sm.LogicGate(0, 0, 0, sm.LogicMode.OR)  # Logic gate to check if the memory at the current pointer is non-zero
+bp.add(nonzero_memory)
+
+# While loop start
 for i in range(bits):
     mem_read.output[i].connect_to(zero_memory)  # Connect the memory read output to the zero check
 
-zero_memory.connect_to(if_while_start)  # Connect the zero check to the while start
+zero_memory.connect_to(if_while_start_jump)  # Connect the zero check to the while start
+nonzero_memory.connect_to(if_while_start_skip)
 
-trigger_while_start.connect_to(program_counter_write.trigger)  # Write the location to jump to when encountering a while start bracket to the program counter
+trigger_while_start_jump.connect_to(program_counter_write.trigger)  # Write the location to jump to when encountering a while start bracket to the program counter
 
 # While loop end
-nonzero_memory = sm.LogicGate(0, 0, 0, sm.LogicMode.OR)  # Logic gate to check if the memory at the current pointer is non-zero
-bp.add(nonzero_memory)
 for i in range(bits):
     mem_read.output[i].connect_to(nonzero_memory)  # Connect the memory read output to the non-zero check
 
-nonzero_memory.connect_to(if_while_end)  # Connect the non-zero check to the while end
+nonzero_memory.connect_to(if_while_end_jump)  # Connect the non-zero check to the while end
+zero_memory.connect_to(if_while_end_skip)
 
-trigger_while_end.connect_to(program_counter_write.trigger)  # Write the location to jump to when encountering a while end bracket to the program counter
+trigger_while_end_jump.connect_to(program_counter_write.trigger)  # Write the location to jump to when encountering a while end bracket to the program counter
 
 # Halt
 rising_edge(bp, bracket_data_rom.output[-1]).output.connect_to(halted_value)  # Connect the halt trigger to the halted value
 
 # Run continuously
-cycle_delay = sm.Timer(0, 0, 0, 7)  # Timer to create a cycle delay
-bp.add(cycle_delay)
 
-tick.connect_to(cycle_delay)  # Connect the tick to the cycle delay
-cycle_delay.connect_to(trigger_tick)  # Connect the cycle delay output to the tick trigger
+# Old clock based approach
+# cycle_delay = sm.Timer(0, 0, 0, 8)  # Timer to create a cycle delay
+# bp.add(cycle_delay)
+
+# tick.connect_to(cycle_delay)  # Connect the tick to the cycle delay
+# cycle_delay.connect_to(trigger_tick)  # Connect the cycle delay output to the tick trigger
+
+# Dynamic cycles
+
+# Increment and Decrement
+increment_delay = sm.Timer(0, 0, 0, 6)
+bp.add(increment_delay)
+trigger_increment.connect_to(increment_delay)
+increment_delay.connect_to(trigger_tick)
+
+decrement_delay = sm.Timer(0, 0, 0, 6)
+bp.add(decrement_delay)
+trigger_decrement.connect_to(decrement_delay)
+decrement_delay.connect_to(trigger_tick)
+
+# Left and Right
+move_left_delay = sm.Timer(0, 0, 0, 7)
+bp.add(move_left_delay)
+trigger_move_left.connect_to(move_left_delay)
+move_left_delay.connect_to(trigger_tick)
+
+move_right_delay = sm.Timer(0, 0, 0, 7)
+bp.add(move_right_delay)
+trigger_move_right.connect_to(move_right_delay)
+move_right_delay.connect_to(trigger_tick)
+
+# Input and Output
+input_delay = sm.Timer(0, 0, 0, 5)
+bp.add(input_delay)
+trigger_input.connect_to(input_delay)
+input_delay.connect_to(trigger_tick)
+
+output_delay = sm.Timer(0, 0, 0, 5)
+bp.add(output_delay)
+trigger_output.connect_to(output_delay)
+output_delay.connect_to(trigger_tick)
+
+# Jumping While
+while_start_jump_delay = sm.Timer(0, 0, 0, 5)
+bp.add(while_start_jump_delay)
+trigger_while_start_jump.connect_to(while_start_jump_delay)
+while_start_jump_delay.connect_to(trigger_tick)
+
+while_end_jump_delay = sm.Timer(0, 0, 0, 5)
+bp.add(while_end_jump_delay)
+trigger_while_end_jump.connect_to(while_end_jump_delay)
+while_end_jump_delay.connect_to(trigger_tick)
+
+# Skipping While
+while_start_skip_delay = sm.Timer(0, 0, 0, 5)
+bp.add(while_start_skip_delay)
+trigger_while_start_skip.connect_to(while_start_skip_delay)
+while_start_skip_delay.connect_to(trigger_tick)
+
+while_end_skip_delay = sm.Timer(0, 0, 0, 5)
+bp.add(while_end_skip_delay)
+trigger_while_end_skip.connect_to(while_end_skip_delay)
+while_end_skip_delay.connect_to(trigger_tick)
+
+
 
 if reset_button:
     bp.add(sm.Blocks(-4, 0, 0, 1, 1, 1, sm.BlockType.BARRIER, "CE9E0C"))

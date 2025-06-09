@@ -1,6 +1,36 @@
 import json
 from enum import IntEnum, Enum
 
+class Part:
+    def __init__(self, x, y, z, color, shapeId, xaxis, zaxis):
+        self.id = None
+        self.color = color
+        self.pos = {"x": x, "y": y, "z": z}
+        self.controllers = []
+        self.shapeId = shapeId
+        self.xaxis = xaxis
+        self.zaxis = zaxis
+
+    def connect_to(self, target):
+        self.controllers.append({"id": target.id})
+        if len(self.controllers) > 256:
+            raise ValueError("Part with more than 256 connections")
+
+    def to_dict(self):
+        return {
+            "color": self.color,
+            "controller": {
+                "id": self.id,
+                "active": False,
+                "controllers": self.controllers or None,
+                "joints": None
+            },
+            "pos": self.pos,
+            "shapeId": self.shapeId,
+            "xaxis": self.xaxis,
+            "zaxis": self.zaxis
+        }
+
 class LogicMode(IntEnum):
     AND = 0
     OR = 1
@@ -9,37 +39,15 @@ class LogicMode(IntEnum):
     NOR = 4
     XNOR = 5
 
-
-class LogicGate:
+class LogicGate(Part):
     def __init__(self, x, y, z, mode: LogicMode, color="DF7F01"):
-        self.id = None
+        super().__init__(x, y, z, color, "9f0f56e8-2c31-4d83-996c-d00a9b296c3f", 2, 1)
         self.mode = mode
-        self.color = color
-        self.pos = {"x": x, "y": y, "z": z}
-        self.controllers = []
-        self.shapeId = "9f0f56e8-2c31-4d83-996c-d00a9b296c3f"
-        self.xaxis = 2
-        self.zaxis = 1
-
-    def connect_to(self, target):
-        self.controllers.append({"id": target.id})
 
     def to_dict(self):
-        return {
-            "color": self.color,
-            "controller": {
-                "id": self.id,
-                "mode": self.mode,
-                "active": False,
-                "controllers": self.controllers or None,
-                "joints": None
-            },
-            "pos": self.pos,
-            "shapeId": self.shapeId,
-            "xaxis": self.xaxis,
-            "zaxis": self.zaxis
-        }
-
+        d = super().to_dict()
+        d["controller"]["mode"] = self.mode
+        return d
 
 class BlockType(Enum):
     PLASTIC = "628b2d61-5ceb-43e9-8334-a4135566df7a"
@@ -47,119 +55,29 @@ class BlockType(Enum):
     BARRIER = "09ca2713-28ee-4119-9622-e85490034758"
     # Add more block types as needed
 
-class Timer:
+class Timer(Part):
     def __init__(self, x, y, z, delay, color="DF7F01"):
-        self.id = None
-        self.pos = {"x": x, "y": y, "z": z}
-        self.color = color
-        self.controllers = []
-        self.seconds = delay//40
-        self.ticks = delay%40
-        self.shapeId = "8f7fd0e7-c46e-4944-a414-7ce2437bb30f"  # Replace with actual shape ID
-        self.xaxis = 1
-        self.zaxis = 3
-
-    def connect_to(self, target):
-        self.controllers.append({"id": target.id})
+        super().__init__(x, y, z, color, "8f7fd0e7-c46e-4944-a414-7ce2437bb30f", 1, 3)
+        self.seconds = delay // 40
+        self.ticks = delay % 40
 
     def to_dict(self):
-        return {
-            "color": self.color,
-            "controller": {
-                "id": self.id,
-                "active": False,
-                "controllers": self.controllers or None,
-                "joints": None,
-                "seconds": self.seconds,
-                "ticks": self.ticks
-            },
-            "pos": self.pos,
-            "shapeId": self.shapeId,
-            "xaxis": self.xaxis,
-            "zaxis": self.zaxis
-        }
-    
-class Switch:
+        d = super().to_dict()
+        d["controller"]["seconds"] = self.seconds
+        d["controller"]["ticks"] = self.ticks
+        return d
+
+class Switch(Part):
     def __init__(self, x, y, z, color="DF7F01"):
-        self.id = None
-        self.color = color
-        self.pos = {"x": x, "y": y, "z": z}
-        self.controllers = []
-        self.shapeId = "7cf717d7-d167-4f2d-a6e7-6b2c70aa3986"
-        self.xaxis = 2
-        self.zaxis = 1
+        super().__init__(x, y, z, color, "7cf717d7-d167-4f2d-a6e7-6b2c70aa3986", 2, 1)
 
-    def connect_to(self, target):
-        self.controllers.append({"id": target.id})
-
-    def to_dict(self):
-        return {
-            "color": self.color,
-            "controller": {
-                "id": self.id,
-                "active": False,
-                "controllers": self.controllers or None,
-                "joints": None
-            },
-            "pos": self.pos,
-            "shapeId": self.shapeId,
-            "xaxis": self.xaxis,
-            "zaxis": self.zaxis
-        }
-class Button:
+class Button(Part):
     def __init__(self, x, y, z, color="DF7F01"):
-        self.id = None
-        self.color = color
-        self.pos = {"x": x, "y": y, "z": z}
-        self.controllers = []
-        self.shapeId = "1e8d93a4-506b-470d-9ada-9c0a321e2db5"
-        self.xaxis = 2
-        self.zaxis = 1
+        super().__init__(x, y, z, color, "1e8d93a4-506b-470d-9ada-9c0a321e2db5", 2, 1)
 
-    def connect_to(self, target):
-        self.controllers.append({"id": target.id})
-
-    def to_dict(self):
-        return {
-            "color": self.color,
-            "controller": {
-                "id": self.id,
-                "active": False,
-                "controllers": self.controllers or None,
-                "joints": None
-            },
-            "pos": self.pos,
-            "shapeId": self.shapeId,
-            "xaxis": self.xaxis,
-            "zaxis": self.zaxis
-        }
-class Toilet:
+class Toilet(Part):
     def __init__(self, x, y, z, color="3E9FFE"):
-        self.id = None
-        self.color = color
-        self.pos = {"x": x, "y": y, "z": z}
-        self.controllers = []
-        self.shapeId = "ca003562-fde7-463c-969e-f8334ae54387"
-        self.xaxis = -1
-        self.zaxis = 2
-
-    def connect_to(self, target):
-        self.controllers.append({"id": target.id})
-
-    def to_dict(self):
-        return {
-            "color": self.color,
-            "controller": {
-                "id": self.id,
-                "active": False,
-                "controllers": self.controllers or None,
-                "joints": None
-            },
-            "pos": self.pos,
-            "shapeId": self.shapeId,
-            "xaxis": self.xaxis,
-            "zaxis": self.zaxis
-        }
+        super().__init__(x, y, z, color, "ca003562-fde7-463c-969e-f8334ae54387", -1, 2)
 
 class Blocks:
     def __init__(self, x, y, z, width, height, depth, block_type: BlockType, color="0B9ADE"):
@@ -180,31 +98,25 @@ class Blocks:
             "zaxis": self.zaxis
         }
 
-
 class Blueprint:
     def __init__(self):
         self.parts = []
         self._id_counter = 1  # Start IDs at 1
 
     def add(self, part):
-        # Assign an ID if the part has an 'id' attribute
         if hasattr(part, 'id'):
             part.id = self._id_counter
             self._id_counter += 1
         self.parts.append(part)
 
     def merge(self, target, source):
-        # Merge controllers from source to target, avoiding duplicates
         target_ids = {c["id"] for c in getattr(target, "controllers", [])}
         for c in getattr(source, "controllers", []):
             if c["id"] not in target_ids:
                 getattr(target, "controllers", []).append({"id": c["id"]})
                 target_ids.add(c["id"])
-
-        # Update all parts that have source.id as a controller to use target.id, avoiding duplicates
         for part in self.parts:
             if hasattr(part, "controllers"):
-                # Remove duplicates after replacement
                 new_controllers = []
                 seen = set()
                 for ctrl in part.controllers:
@@ -215,8 +127,6 @@ class Blueprint:
                         new_controllers.append({"id": ctrl_id})
                         seen.add(ctrl_id)
                 part.controllers = new_controllers
-
-        # Remove the source part from the blueprint
         self.parts = [p for p in self.parts if p is not source]
 
     def to_json(self):

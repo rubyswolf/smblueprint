@@ -1,8 +1,8 @@
 from datetime import timedelta
 
 # === Configuration ===
-FILENAME = "calculator2.bf"  # File containing Brainfuck code
-bf_input = "1+1"            # Hardcoded Brainfuck input string
+FILENAME = "every_second.bf"  # File containing Brainfuck code
+bf_input = "00000"            # Hardcoded Brainfuck input string
 
 # === Load Brainfuck Code from File ===
 with open("./scripts/"+FILENAME, "r") as f:
